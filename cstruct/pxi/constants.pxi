@@ -1,0 +1,15 @@
+DEF USE_LONG = 1
+DEF USE_DOUBLE = 1
+
+
+IF USE_LONG == 1:
+    DEF ARR_INT_FMT = "l"
+    DEF ARR_UINT_FMT = "L"
+ELSE:
+    DEF ARR_INT_FMT = "i"
+    DEF ARR_UINT_FMT = "I"
+
+IF USE_DOUBLE == 1:
+    DEF ARR_FLOAT_FMT = "d"
+ELSE:
+    DEF ARR_FLOAT_FMT = "f"

@@ -1,0 +1,2 @@
+class uint(int):
+    pass
