@@ -2,7 +2,10 @@ include "../pxi/types.pxi"
 
 
 cdef class BytesWriter:
-    cdef list stack
+    cdef void* ptr
+    cdef size_t p
+    cdef int _write(self, void*, size_t) except -1
+    cpdef void write_char(self, char)
     cpdef void write_int(self, IntType)
     cpdef void write_uint(self, UIntType)
     cpdef void write_size_t(self, size_t)
