@@ -1,6 +1,7 @@
 include "../pxi/constants.pxi"
+from libc.stdlib cimport malloc, free
+from libc.string cimport memcpy
 from typing import List
-from ..constants cimport *
 from ..types import uint
 from cpython cimport array
 import array
@@ -9,85 +10,96 @@ import array
 cdef class BytesReader:
     def __cinit__(self, bytes buff):
         self.pos = 0
-        self.buff = buff
         self.length = len(buff)
+        self.buff = malloc(self.length * sizeof(char))
+        memcpy(self.buff, <char*>buff, self.length*sizeof(char))
 
-    cpdef bint empty(self):
+    cdef bint empty(self):
         return self.pos >= self.length
 
-    cpdef bytes _read(self, size_t size):
-        cdef bytes data = self.buff[self.pos:self.pos+size]
+    cdef void* _read(self, size_t size):
+        cdef void* p = <char*>self.buff + self.pos
         self.pos += size
-        return data
+        return p
 
-    cpdef IntType read_int(self):
-        cdef bytes data = self._read(SIZE_INT)
-        cdef IntType * ptr = <IntType*><char*> data
-        return ptr[0]
+    cdef char read_char(self):
+        return (<char*>self._read(sizeof(char)))[0]
 
-    cpdef UIntType read_uint(self):
-        cdef bytes data = self._read(SIZE_UINT)
-        cdef UIntType * ptr = <UIntType*><char*> data
-        return ptr[0]
+    cdef long long read_int(self):
+        cdef long long result = 0
+        cdef char size = self.read_char()
+        cdef char negative = size & 0b10000
+        size &= 0b1111
+        cdef char* begin = <char*>&result
+        cdef void* p = self._read(size*sizeof(char))
+        memcpy(begin, p, size)
+        if negative:
+            result = - result
+        return result
 
-    cpdef size_t read_size_t(self):
-        cdef bytes data = self._read(sizeof(size_t))
-        cdef size_t * ptr = <size_t*><char*> data
-        return ptr[0]
+    cdef unsigned long long read_uint(self):
+        cdef unsigned long long result = 0
+        cdef char size = self.read_char()
+        cdef char* begin = <char*>&result
+        cdef void* p = self._read(size*sizeof(char))
+        memcpy(begin, p, size)
+        return result
 
-    cpdef FloatType read_float(self):
-        cdef bytes data = self._read(SIZE_FLOAT)
-        cdef FloatType * ptr = <FloatType*><char*> data
-        return ptr[0]
+    cdef size_t read_size_t(self):
+        return (<size_t*>self._read(sizeof(size_t)))[0]
 
-    cpdef str read_str(self):
+    cdef FloatType read_float(self):
+        return (<FloatType*>self._read(sizeof(FloatType)))[0]
+
+    cdef str read_str(self):
         return self.read_bytes().decode()
 
-    cpdef bytes read_bytes(self):
+    cdef bytes read_bytes(self):
         cdef size_t size = self.read_size_t()
-        cdef bytes data = self._read(size)
+        cdef bytes data = (<char*>self._read(size*sizeof(char)))[:size]
         return data
 
-    cpdef list read_list_int(self):
-        cdef size_t size = self.read_size_t()
-        cdef bytes data = self._read(size*SIZE_INT)
-        cdef char* ptr = <char*>data
-        cdef array.array arr = array.array(ARR_INT_FMT, [])
-        array.extend_buffer(arr, ptr, size)
-        return list(arr)
+    cdef list read_list_int(self):
+        cdef size_t size = self.read_size_t(), i
+        cdef list result = []
+        cdef long long value
+        for i in range(size):
+            value = self.read_int()
+            result.append(value)
+        return result
 
-    cpdef list read_list_uint(self):
-        cdef size_t size = self.read_size_t()
-        cdef bytes data = self._read(size*SIZE_UINT)
-        cdef char* ptr = <char*>data
-        cdef array.array arr = array.array(ARR_UINT_FMT, [])
-        array.extend_buffer(arr, ptr, size)
-        return list(arr)
+    cdef list read_list_uint(self):
+        cdef size_t size = self.read_size_t(), i
+        cdef list result = []
+        cdef unsigned long long value
+        for i in range(size):
+            value = self.read_uint()
+            result.append(value)
+        return result
 
-    cpdef list read_list_float(self):
-        cdef size_t size = self.read_size_t()
-        cdef bytes data = self._read(size*SIZE_FLOAT)
-        cdef char* ptr = <char*>data
+    cdef list read_list_float(self):
+        cdef size_t size = self.read_size_t(), item_size = sizeof(FloatType)
+        cdef void* ptr = self._read(size*item_size)
         cdef array.array arr = array.array(ARR_FLOAT_FMT, [])
-        array.extend_buffer(arr, ptr, size)
-        return list(arr)
+        array.extend_buffer(arr, <char*>ptr, size)
+        return arr.tolist()
 
     cpdef object read(self, object type_):
-        if type_ == int:
+        if type_ is int:
             return self.read_int()
-        elif type_ == float:
+        elif type_ is float:
             return self.read_float()
-        elif type_ == uint:
+        elif type_ is uint:
             return self.read_uint()
-        elif type_ == str:
+        elif type_ is str:
             return self.read_str()
-        elif type_ == bytes:
+        elif type_ is bytes:
             return self.read_bytes()
-        elif type_ == List[int]:
+        elif type_ is List[int]:
             return self.read_list_int()
-        elif type_ == List[uint]:
+        elif type_ is List[uint]:
             return self.read_list_uint()
-        elif type_ == List[float]:
+        elif type_ is List[float]:
             return self.read_list_float()
         elif issubclass(type_, List):
             size = self.read_size_t()
@@ -99,7 +111,10 @@ cdef class BytesReader:
                 value = self.read(item_type)
                 output.append(value)
             return output
-        elif hasattr(type_, "deserialize"):    # Duck-type for issubcliass(type_, Serializable)
-            return getattr(type_, "deserialize")(self)
+        elif hasattr(type_, "deserialize"):    # Duck-type for issubclass(type_, Serializable)
+            return type_.deserialize(self)
         else:
             raise TypeError("Can only deserialize primitives and Serializable objects")
+
+    def __dealloc__(self):
+        free(self.buff)

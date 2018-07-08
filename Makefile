@@ -1,4 +1,4 @@
-.phony: clean build test
+.phony: clean build test benchmark
 
 clean:
 	rm -f **/*.so >/dev/null || true
@@ -13,3 +13,6 @@ build:
 
 test:
 	python -m unittest discover -s tests
+
+benchmark:
+	python benchmark.py

@@ -2,18 +2,19 @@ include "../pxi/types.pxi"
 
 
 cdef class BytesReader:
-    cdef bytes buff
+    cdef void* buff
     cdef size_t pos
     cdef size_t length
-    cpdef bint empty(self)
-    cpdef bytes _read(self, size_t size)
-    cpdef IntType read_int(self)
-    cpdef UIntType read_uint(self)
-    cpdef size_t read_size_t(self)
-    cpdef FloatType read_float(self)
-    cpdef str read_str(self)
-    cpdef bytes read_bytes(self)
-    cpdef list read_list_int(self)
-    cpdef list read_list_uint(self)
-    cpdef list read_list_float(self)
+    cdef bint empty(self)
+    cdef void* _read(self, size_t)
+    cdef char read_char(self)
+    cdef long long read_int(self)
+    cdef unsigned long long read_uint(self)
+    cdef size_t read_size_t(self)
+    cdef FloatType read_float(self)
+    cdef str read_str(self)
+    cdef bytes read_bytes(self)
+    cdef list read_list_int(self)
+    cdef list read_list_uint(self)
+    cdef list read_list_float(self)
     cpdef object read(self, object)

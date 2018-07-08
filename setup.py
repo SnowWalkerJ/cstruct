@@ -13,7 +13,6 @@ setup(
     name='cstruct',
     version=version,
     ext_modules=cythonize([
-        "cstruct/constants.pyx",
         "cstruct/io/bytes_reader.pyx",
         "cstruct/io/bytes_writer.pyx",
     ]),

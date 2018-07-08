@@ -9,6 +9,7 @@ class SerializableMeta(type):
         mappings = []
         for member, attribute in members.items():
             if isinstance(attribute, SerializableAttribute):
+                attribute.set_name(member)
                 mappings.append((member, attribute.type_))
         members['mappings'] = sorted(mappings)
         init_func = members.get('__init__')
@@ -25,8 +26,8 @@ class SerializableMeta(type):
 
 
 class Serializable(metaclass=SerializableMeta):
-    def serialize(self) -> bytes:
-        writer = BytesWriter()
+    def serialize(self, writer=None) -> bytes:
+        writer = writer or BytesWriter()
         for name, type_ in self.mappings:
             value = getattr(self, name)
             writer.write(value, type_)
